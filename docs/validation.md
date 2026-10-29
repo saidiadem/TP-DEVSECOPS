@@ -1,38 +1,57 @@
 # Bilan de validation — 29 octobre 2026
 
-## Vérifié localement
+## Preuves GitHub Actions
 
-- 8 tests unitaires réussis : application et règles de blocage du rapport ZAP.
-- Test de non-régression fourni pour la PR corrigée : réussi séparément.
-- Bandit 1.8.6 sur l'application corrigée : code 0, aucune alerte High.
-- Patch SAST appliqué dans un dossier temporaire : B201 High, code 1.
-- Patch XSS appliqué dans un dossier temporaire : la réponse contient le script
-  non échappé et ne contient plus de CSP. Dans la version corrigée, le script est
-  échappé. Cette vérification utilise le client de test Flask ; ce n'est pas un scan DAST.
-- Syntaxe Bash et lecture YAML vérifiées ; workflow validé par actionlint 1.7.12
-  (sans ShellCheck) ; dépendances Python cohérentes (`pip check`).
-- Les deux patches sont applicables à la version livrée.
-- Construction de l'image `tp2-app` : réussie après ouverture des accès Docker.
-- Authentification GitHub : confirmée pour `saidiadem`.
+| Version | Référence | Résultat |
+| --- | --- | --- |
+| Application initiale sûre | [Run main](https://github.com/saidiadem/TP-DEVSECOPS/actions/runs/40883544121) | Pipeline vert après configuration du secret Snyk et relance |
+| XSS volontaire | [PR #1](https://github.com/saidiadem/TP-DEVSECOPS/pull/1), [run](https://github.com/saidiadem/TP-DEVSECOPS/actions/runs/40883638151) | ZAP détecte deux alertes High : XSS réfléchie (40012) et XSS DOM (40026) |
+| XSS corrigée | [PR #2](https://github.com/saidiadem/TP-DEVSECOPS/pull/2), [run du correctif](https://github.com/saidiadem/TP-DEVSECOPS/actions/runs/40883884921) | Les cinq jobs réussissent : build-test, sast, sca, dast et security-gate |
 
-## Reste à vérifier dans un environnement disposant des accès
+La PR #2 rétablit l'échappement Jinja et la CSP, puis ajoute un test de
+non-régression. Le run vert ci-dessus valide le correctif ; le dernier run de la
+PR valide aussi les éventuelles mises à jour documentaires ultérieures.
 
-- Scan ZAP réel : en cours de validation ; aucune détection ZAP réelle n'est encore revendiquée.
-- Scan Snyk : non exécuté, jeton Snyk à configurer. La version des dépendances ne
-  constitue pas une preuve d'absence de vulnérabilité.
-- Exécution GitHub Actions, protection de `main` et deux PR : à valider.
-  Le dépôt distant était vide ; une copie locale a été initialisée avec le remote demandé.
+Les artefacts `sast-report`, `sca-report` et `dast-report` sont téléchargeables dans
+les runs. Le rapport DAST contient `zap.html`, `zap.json` et les logs de l'application.
+Le premier lancement a révélé un secret Snyk absent ; après configuration, Snyk
+passe sans modification ni désactivation du seuil de sécurité.
 
-## Limites et décisions
+## Vérifications locales
 
-- Analyse DAST non authentifiée de cette petite application uniquement.
-- Bandit analyse `app.py`, unique fichier applicatif. Étendre sa cible si le code
-  est réparti dans d'autres modules.
-- Snyk analyse les dépendances d'exécution, y compris les dépendances transitives
-  figées dans `requirements.txt`. Les outils de développement ne sont pas inclus
-  dans ce périmètre SCA.
-- Les versions majeures des actions, l'image Python et l'image ZAP stable peuvent
-  évoluer. Pour une reproductibilité stricte, figer aussi leurs SHA/digests après
-  une première exécution vérifiée.
-- Une première exécution verte, puis les deux PR, restent nécessaires pour rendre
-  la preuve complète demandée dans le TP.
+- 9 tests unitaires réussis dans la version corrigée.
+- Le test XSS échoue sur la variante vulnérable et réussit sur la correction.
+- Bandit 1.8.6 : code 0 sur l'application corrigée ; le patch SAST supplémentaire
+  déclenche B201 High et retourne 1.
+- Construction Docker réussie, avec un utilisateur applicatif non root.
+- Scan ZAP local exécuté : aucune alerte High. Le script utilise `python3` pour
+  fonctionner aussi hors environnement virtuel sur les systèmes sans alias `python`.
+- Syntaxe Bash, compilation Python et dépendances (`pip check`) vérifiées.
+- Workflow validé par actionlint 1.7.12, sans ShellCheck.
+
+## Blocage effectif
+
+La branche `main` exige une pull request et le contrôle `security-gate`, y compris
+pour les administrateurs. Chaque résultat requis doit être `success` ; échec,
+annulation ou job ignoré empêchent la validation. Les force-pushs et suppressions
+sont désactivés sur `main`.
+
+Le scan actif vise uniquement l'application éphémère du TP dans un réseau Docker
+isolé. Aucun port n'est publié sur l'hôte. Les conteneurs et le réseau sont supprimés
+à la fin du scan. Aucun déploiement de production n'est créé.
+
+## Interprétation et limites
+
+- Le résultat vert signifie qu'aucune alerte n'atteint les seuils bloquants ; il ne
+  signifie pas que tous les rapports sont vides ou qu'aucune vulnérabilité n'existe.
+- Le rapport ZAP du code sûr conserve notamment une alerte Medium `HTTP Only Site`
+  sur l'environnement éphémère HTTP, ainsi que des alertes Low sur certains en-têtes.
+  Ces alertes restent visibles ; elles ne sont pas masquées par une exclusion.
+- Le scan DAST est non authentifié. L'application ne possède pas de zone connectée.
+- Bandit analyse `app.py`, unique module applicatif. Étendre sa cible si le projet grandit.
+- Snyk analyse les dépendances d'exécution directes et transitives figées dans
+  `requirements.txt`. Les outils de développement sont hors de ce périmètre SCA.
+- Les images et versions majeures des actions peuvent évoluer. Figer aussi leurs
+  SHA/digests si une reproductibilité stricte est nécessaire.
+- La PR vulnérable sert uniquement de preuve et ne doit pas être fusionnée.
+  Les PR sont laissées disponibles pour évaluation ; aucune fusion n'a été effectuée.

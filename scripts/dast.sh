@@ -41,4 +41,4 @@ if [ "$status" -gt 2 ]; then
   echo "Erreur d'exécution ZAP : $status" >&2
   exit "$status"
 fi
-python scripts/zap_gate.py reports/zap.json
+python3 scripts/zap_gate.py reports/zap.json
