@@ -13,7 +13,7 @@ def health():
 def index():
     return render_template_string(
         '<!doctype html><html lang="fr"><title>TP DevSecOps</title>'
-        '<h1>Bonjour {{ name }}</h1>'
+        '<h1>Bonjour {{ name | safe }}</h1>'
         '<form method="get"><label>Nom <input name="name"></label>'
         '<button>Afficher</button></form></html>',
         name=request.args.get("name", "visiteur"),
@@ -22,9 +22,6 @@ def index():
 
 @app.after_request
 def security_headers(response):
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
-    )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
