@@ -1,0 +1,121 @@
+name: CI DevSecOps
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m compileall -q app.py scripts
+      - run: python -m unittest discover -s tests -v
+      - run: docker build -t tp2-app .
+
+  sast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-dev.txt
+      - name: Bandit - blocage High
+        run: |
+          mkdir -p reports
+          bandit -r app.py --severity-level high -f json -o reports/bandit.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sast-report
+          path: reports/bandit.json
+          if-no-files-found: error
+
+  sca:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r requirements.txt
+      - run: npm install --global snyk
+      - name: Snyk - blocage High et Critical
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          mkdir -p reports
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo 'Configurer le secret SNYK_TOKEN dans GitHub Actions.' >&2
+            exit 1
+          fi
+          snyk test --file=requirements.txt --package-manager=pip --command=python --severity-threshold=high --json-file-output=reports/snyk.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sca-report
+          path: reports/snyk.json
+          if-no-files-found: error
+
+  dast:
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: docker build -t tp2-app .
+      - name: Application éphémère et scan actif ZAP
+        run: bash scripts/dast.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dast-report
+          path: reports/
+          if-no-files-found: error
+
+  security-gate:
+    if: always()
+    needs: [build-test, sast, sca, dast]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Tous les contrôles doivent réussir
+        env:
+          BUILD: ${{ needs.build-test.result }}
+          SAST: ${{ needs.sast.result }}
+          SCA: ${{ needs.sca.result }}
+          DAST: ${{ needs.dast.result }}
+        run: |
+          for result in "$BUILD" "$SAST" "$SCA" "$DAST"; do
+            [ "$result" = success ] || exit 1
+          done

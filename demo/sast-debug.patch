@@ -1,0 +1,10 @@
+--- a/app.py
++++ b/app.py
+@@ -30,3 +30,7 @@
+     response.headers["Referrer-Policy"] = "no-referrer"
+     response.headers["Cache-Control"] = "no-store"
+     return response
++
++
++if __name__ == "__main__":
++    app.run(debug=True)
