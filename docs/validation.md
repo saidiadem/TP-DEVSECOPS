@@ -24,6 +24,8 @@ passe sans modification ni désactivation du seuil de sécurité.
 - Bandit 1.8.6 : code 0 sur l'application corrigée ; le patch SAST supplémentaire
   déclenche B201 High et retourne 1.
 - Construction Docker réussie, avec un utilisateur applicatif non root.
+- Scan ZAP local exécuté : aucune alerte High. Le script utilise `python3` pour
+  fonctionner aussi hors environnement virtuel sur les systèmes sans alias `python`.
 - Syntaxe Bash, compilation Python et dépendances (`pip check`) vérifiées.
 - Workflow validé par actionlint 1.7.12, sans ShellCheck.
 
