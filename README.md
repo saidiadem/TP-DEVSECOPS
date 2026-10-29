@@ -5,6 +5,16 @@ https://github.com/saidiadem/TP-DEVSECOPS.
 Le dépôt distant était vide au démarrage. Cette application sert de support au TP 2.
 Le TP 1 n'est pas réalisé ici ; Bandit et Snyk sont les outils choisis parmi ceux proposés.
 
+## Démonstration réalisée
+
+- [PR #1 : XSS volontaire](https://github.com/saidiadem/TP-DEVSECOPS/pull/1).
+- [PR #2 : correction et test de non-régression](https://github.com/saidiadem/TP-DEVSECOPS/pull/2).
+- [Rapport de validation et liens des scans](docs/validation.md).
+- `main` est protégée par le contrôle obligatoire `security-gate`.
+
+Les commandes ci-dessous permettent de reproduire la démonstration dans un autre
+clone ; les deux PR existent déjà dans ce dépôt.
+
 ## Pipeline
 
 | Job | Travail réalisé | Condition d'échec |
